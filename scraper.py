@@ -10,6 +10,22 @@ import datetime
 import configparser
 import re
 
+### requires config file with the following
+# [auth]
+# twilio_sid=
+# twilio_auth_token=
+# goes_user=
+# goes_pw=
+#
+# [tn]
+# twilio_tn=
+# my_tn=
+#
+# [general]
+# target_date=20170126
+# selenium_driver_path=$PATH:[your path]
+###
+
 config = configparser.ConfigParser()
 config.read('config.txt')
 
@@ -52,6 +68,9 @@ class GoesScraper():
         browser = webdriver.Chrome()
 
         try:
+            #####
+            ## login
+
             wait = WebDriverWait(browser, 10)
 
             browser.get('https://goes-app.cbp.dhs.gov/goes/jsp/login.jsp')
@@ -67,6 +86,8 @@ class GoesScraper():
             passwordElem.submit()
 
             #######
+            ## prove you're a human
+
             self.wait4element(wait, 'checkMe')
 
             time.sleep(xtra_wait)
@@ -76,6 +97,7 @@ class GoesScraper():
             humanElem.click()
 
             #######
+            ## click "manage appointments"
 
             self.wait4element(wait, 'manageAptm')
 
@@ -84,6 +106,7 @@ class GoesScraper():
             mgElem.click()
 
             #######
+            ## click "reschedule"
 
             self.wait4element(wait, 'reschedule')
 
@@ -92,6 +115,7 @@ class GoesScraper():
             reschedElem.click()
 
             #######
+            ## select enrollment center
 
             self.wait4element(wait, 'selectedEnrollmentCenter')
 
@@ -106,6 +130,8 @@ class GoesScraper():
             nextElem.click()
 
             ########
+            ## check for earliest available date
+
             self.wait4element(wait, 'reschedule')
 
             tgt = browser.find_element_by_css_selector("td[id*='scheduleForm\:schedule1_header_']")
@@ -118,6 +144,7 @@ class GoesScraper():
             nextElem.click()
 
             ########
+            ## select another enrollment center
 
             self.wait4element(wait, 'selectedEnrollmentCenter')
 
@@ -132,9 +159,13 @@ class GoesScraper():
             nextElem.click()
 
             ########
+            ## check for text indicating no appointments
 
             field_office_unavail = re.search(r'Currently there are no available appointments at this enrollment center', browser.page_source)
 
+
+            ########
+            ## send SMS
 
             if (send_sms):
                 message = ''
@@ -155,6 +186,8 @@ class GoesScraper():
                                                  to=config.get('tn', 'my_tn'),    # Replace with your phone number
                                                  from_=config.get('tn', 'twilio_tn')) # Replace with your Twilio number
 
+            ########
+            ## log out
 
             nextElem = browser.find_element_by_link_text('Log off')
 
