@@ -7,15 +7,18 @@ from twilio.rest import TwilioRestClient
 import os
 import time
 import datetime
+import configparser
+import re
 
+config = configparser.ConfigParser()
+config.read('config.txt')
 
-# send SMS (from +4915735981929)
-account_sid = "AC6cd6df60141eeb7454b852fba8799181" # Your Account SID from www.twilio.com/console
-auth_token  = "d145c2335a886a23870f3d5c7d9ac4ae"  # Your Auth Token from www.twilio.com/console
+account_sid = config.get('auth', 'twilio_sid') # Your Account SID from www.twilio.com/console
+auth_token  = config.get('auth', 'twilio_auth_token')  # Your Auth Token from www.twilio.com/console
 
 
 xtra_wait = 3
-target_date = '20170126'
+target_date = config.get('general', 'target_date')
 
 class GoesScraper():
 
@@ -43,9 +46,10 @@ class GoesScraper():
 
         client = TwilioRestClient(account_sid, auth_token)
 
-        os.environ['PATH'] = "$PATH:/Users/dan/dev/tools/selenium/"
+        os.environ['PATH'] = config.get('general', 'selenium_driver_path')
 
-        browser = webdriver.Firefox()
+        # browser = webdriver.Firefox()
+        browser = webdriver.Chrome()
 
         try:
             wait = WebDriverWait(browser, 10)
@@ -54,11 +58,11 @@ class GoesScraper():
 
             loginElem = browser.find_element_by_id('j_username')
 
-            loginElem.send_keys('ecodan68')
+            loginElem.send_keys(config.get('auth', 'goes_user'))
 
             passwordElem = browser.find_element_by_id('j_password')
 
-            passwordElem.send_keys('Ru18qtpi!')
+            passwordElem.send_keys(config.get('auth', 'goes_pw'))
 
             passwordElem.submit()
 
@@ -105,29 +109,67 @@ class GoesScraper():
             self.wait4element(wait, 'reschedule')
 
             tgt = browser.find_element_by_css_selector("td[id*='scheduleForm\:schedule1_header_']")
-            print(tgt.get_attribute("id"))
+            # print(tgt.get_attribute("id"))
             date = tgt.get_attribute("id")[30::]
-            print ("earliest date: {0}".format(date))
+            # print ("earliest date: {0}".format(date))
+
+            nextElem = browser.find_element_by_name('scheduleForm:j_id_id22')
+
+            nextElem.click()
+
+            ########
+
+            self.wait4element(wait, 'selectedEnrollmentCenter')
+
+            el = browser.find_element_by_id('selectedEnrollmentCenter')
+            for option in el.find_elements_by_tag_name('option'):
+                if option.get_attribute("value") == '11981':
+                    option.click() # select() in earlier versions of webdriver
+                    break
+
+            nextElem = browser.find_element_by_name('next')
+
+            nextElem.click()
+
+            ########
+
+            field_office_unavail = re.search(r'Currently there are no available appointments at this enrollment center', browser.page_source)
 
 
             if (send_sms):
-                if self.earlier_than(date,target_date):
-                    message = "+++ maybe; earliest {0}".format(date)
-                else:
-                    message = "--- not looking good; earliest {0}".format(date)
+                message = ''
 
-                message = client.messages.create(body=message,
-                                                 to="+491755838527",    # Replace with your phone number
-                                                 from_="+4915735981929") # Replace with your Twilio number
+                if self.earlier_than(date,target_date):
+                    message += "Ohare: +++ {0}".format(date)
+                else:
+                    message += "Ohare: --- {0}".format(date)
+
+                if field_office_unavail:
+                    message += " | Field: ---".format(date)
+                else:
+                    message += " | Field: +++".format(date)
+
+                print(message)
+
+                client.messages.create(body=message,
+                                                 to=config.get('tn', 'my_tn'),    # Replace with your phone number
+                                                 from_=config.get('tn', 'twilio_tn')) # Replace with your Twilio number
+
+
+            nextElem = browser.find_element_by_link_text('Log off')
+
+            nextElem.click()
+
 
 
         except Exception as inst:
             print('bummer, something failed :(')
             print(type(inst))
             print(inst.args)
-            message = client.messages.create(body="failure",
-                                             to="+491755838527",    # Replace with your phone number
-                                             from_="+4915735981929") # Replace with your Twilio number
+            client.messages.create(body="failure",
+                                             to=config.get('tn', 'my_tn'),    # Replace with your phone number
+                                             from_=config.get('tn', 'twilio_tn')) # Replace with your Twilio number
+
         if quit_on_end:
             browser.quit()
 
