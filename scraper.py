@@ -10,6 +10,8 @@ import datetime
 import configparser
 import re
 
+### requires selenium drivers at the appropriate path
+
 ### requires config file with the following
 # [auth]
 # twilio_sid=
@@ -132,7 +134,7 @@ class GoesScraper():
             ########
             ## check for earliest available date
 
-            self.wait4element(wait, 'reschedule')
+            # self.wait4element(wait, 'reschedule')
 
             tgt = browser.find_element_by_css_selector("td[id*='scheduleForm\:schedule1_header_']")
             # print(tgt.get_attribute("id"))
@@ -206,5 +208,5 @@ class GoesScraper():
         if quit_on_end:
             browser.quit()
 
-# GoesScraper().run()
+GoesScraper().run()
 # GoesScraper().run(send_sms=False, quit_on_end=False)
